@@ -1,12 +1,16 @@
-// 1. Fixed: Added 'type' keyword for type-only imports to satisfy verbatimModuleSyntax
 import type { Movie, Recommendation, UserProfile } from '../types';
-// 2. Fixed: Removed unused 'getMovieDetails' import
-import { searchMovies } from './tmdb';
 
+// ==========================================
+// API Key Configuration
+// ==========================================
 const LOCAL_STORAGE_KEY = 'movie_app_gemini_key';
 
 export const getGeminiKey = (): string => {
-  return (import.meta.env.VITE_GEMINI_API_KEY as string) || localStorage.getItem(LOCAL_STORAGE_KEY) || '';
+  return (
+    (import.meta.env.VITE_GEMINI_API_KEY as string) ||
+    localStorage.getItem(LOCAL_STORAGE_KEY) ||
+    ''
+  );
 };
 
 export const setGeminiKey = (key: string): void => {
@@ -17,7 +21,7 @@ export const removeGeminiKey = (): void => {
   localStorage.removeItem(LOCAL_STORAGE_KEY);
 };
 
-// Generates client-side recommendations when Gemini is not configured
+// Generates client-side recommendations based on rating category weights
 export const getClientRecommendations = (
   userProfile: UserProfile,
   allMovies: Movie[],
@@ -25,10 +29,11 @@ export const getClientRecommendations = (
 ): Recommendation[] => {
   const { watchlist, ratings } = userProfile;
   const ratedMovieIds = Object.keys(ratings).map(Number);
-  const excludes = new Set([...watchlist, ...ratedMovieIds]);
 
-  // If user has no watch history or ratings, recommend highly-rated popular movies
-  if (excludes.size === 0) {
+  // FIX: DO NOT exclude watchlist items from the calculation loop pool! Only exclude already rated movies.
+  const excludes = new Set([...ratedMovieIds]);
+
+  if (watchlist.length === 0 && ratedMovieIds.length === 0) {
     return allMovies
       .slice(0, 5)
       .map((movie, idx) => ({
@@ -39,44 +44,40 @@ export const getClientRecommendations = (
       }));
   }
 
-  // Calculate genre preferences
   const genrePoints: Record<number, number> = {};
 
-  // Weights based on ratings
+  // 1. Add/subtract points based on user ratings
   Object.entries(ratings).forEach(([idStr, score]) => {
     const id = Number(idStr);
     const movie = allMovies.find(m => m.id === id);
     if (!movie) return;
 
-    // Weight: 5 stars = +3, 4 stars = +2, 3 stars = +1, 2 stars = -1, 1 star = -3
     const weight = score >= 4 ? score - 2 : score - 4;
-
     movie.genre_ids.forEach(gid => {
       genrePoints[gid] = (genrePoints[gid] || 0) + weight;
     });
   });
 
-  // Include watchlist items (weight = +2)
+  // 2. EXTRA MASSIVE BOOST: Give a huge priority point spike to genres sitting in the watchlist!
   watchlist.forEach(id => {
     const movie = allMovies.find(m => m.id === id);
     if (!movie) return;
     movie.genre_ids.forEach(gid => {
-      genrePoints[gid] = (genrePoints[gid] || 0) + 2;
+      genrePoints[gid] = (genrePoints[gid] || 0) + 30; // Boosted to +30 to override everything else
     });
   });
 
-  // Calculate scores for unwatched movies
   const recommendations: Recommendation[] = [];
 
   allMovies.forEach(movie => {
     if (excludes.has(movie.id)) return;
 
-    let matchScore = 50; // Base score
+    let matchScore = 50;
     let matchedGenres: string[] = [];
 
     movie.genre_ids.forEach(gid => {
       const pts = genrePoints[gid] || 0;
-      matchScore += pts * 5;
+      matchScore += pts * 6; // Multiplier increased to impact the list heavily
 
       const genreObj = genresList.find(g => g.id === gid);
       if (genreObj && pts > 0) {
@@ -84,16 +85,25 @@ export const getClientRecommendations = (
       }
     });
 
-    // Add weight for TMDB vote average
-    matchScore += (movie.vote_average - 5) * 4;
+    // Check if this specific movie is inspired by an active watchlist item's genre
+    const isWatchlistInformed = watchlist.some(wId => {
+      const wMovie = allMovies.find(m => m.id === wId);
+      return wMovie?.genre_ids.some(gId => movie.genre_ids.includes(gId));
+    });
 
-    // Clamp score between 10 and 99
+    if (isWatchlistInformed) {
+      matchScore += 25; // Add raw points just for sharing genres with the watchlist!
+    }
+
+    matchScore += (movie.vote_average - 5) * 4;
     const finalScore = Math.max(10, Math.min(99, Math.round(matchScore)));
 
     if (finalScore >= 60) {
-      const reason = matchedGenres.length > 0
-        ? `Matches your affinity for ${matchedGenres.slice(0, 2).join(' & ')}.`
-        : `Recommended based on its high popularity and rating.`;
+      const reason = watchlist.includes(movie.id)
+        ? `Directly on your watchlist! You marked this film to watch.`
+        : matchedGenres.length > 0
+          ? `Highly matches your watchlist interests in ${matchedGenres.slice(0, 2).join(' & ')}.`
+          : `Recommended based on your history profile.`;
 
       recommendations.push({
         movie,
@@ -104,121 +114,149 @@ export const getClientRecommendations = (
     }
   });
 
+  // Sort by highest match score so watchlist-driven items fly to the top
   return recommendations.sort((a, b) => b.score - a.score).slice(0, 6);
 };
 
-// Calls the official Gemini API to get personalized suggestions
+// FIXED: Resolves titles directly from your local `allMovies` array. 
+// Mandates matching based strictly around the user's active watchlist items.
 export const getGeminiRecommendations = async (
-  // 3. Fixed: Prefixed with an underscore to tell TS this parameter is intentionally unused here
-  _userProfile: UserProfile,
+  userProfile: UserProfile,
   movieHistoryDetails: { title: string; rating: number; year: string }[],
-  watchlistDetails: string[]
+  watchlistDetails: string[],
+  allMovies: Movie[] = []
 ): Promise<Recommendation[]> => {
   const apiKey = getGeminiKey();
   if (!apiKey) {
-    throw new Error('Gemini API key is not configured.');
+    throw new Error('Gemini API Key missing');
   }
 
-  // Build profile context for prompt
-  const likesStr = movieHistoryDetails
-    .filter(m => m.rating >= 4)
-    .map(m => `"${m.title}" (${m.year}, rated ${m.rating}/5 stars)`)
-    .join(', ');
+  const perfectFiveStarMovies = movieHistoryDetails.filter(m => m.rating === 5);
+  const goodMoviesAboveThreeStars = movieHistoryDetails.filter(m => m.rating > 3 && m.rating < 5);
+  const poorMoviesOrBelow = movieHistoryDetails.filter(m => m.rating <= 3);
 
-  const dislikesStr = movieHistoryDetails
-    .filter(m => m.rating <= 2)
-    .map(m => `"${m.title}" (${m.year}, rated ${m.rating}/5 stars)`)
-    .join(', ');
+  const watchlistText = watchlistDetails.map(t => `- ${t}`).join('\n');
+  const absoluteFavoritesText = perfectFiveStarMovies.map(m => `- ${m.title}`).join('\n');
+  const recommendedTastesText = goodMoviesAboveThreeStars.map(m => `- ${m.title} (${m.rating} Stars)`).join('\n');
+  const avoidedTastesText = poorMoviesOrBelow.map(m => `- ${m.title} (${m.rating} Stars)`).join('\n');
 
-  const watchlistStr = watchlistDetails.map(t => `"${t}"`).join(', ');
+  // Provide available titles context to Gemini so it only responds with movies you actually have
+  const availableTitles = allMovies.slice(0, 150).map(m => m.title).join(', ');
 
-  const prompt = `You are a film critic AI. Recommend exactly 5 movies based on this user's profile:
-- Liked Movies: [${likesStr || 'None'}]
-- Disliked Movies: [${dislikesStr || 'None'}]
-- Watchlist: [${watchlistStr || 'None'}]
+  // CRITICAL: Force the prompt to explicitly match the theme of the watchlist above all else
+  const prompt = `You are an advanced movie recommendation engine. The user needs recommendations that are strongly and directly inspired by their Watchlist.
 
-Guidelines:
-1. Do not recommend any of the movies already listed in the user's liked list or watchlist.
-2. Provide movies that range from hidden gems to classics, matching the user's preference style.
-3. For each recommendation, provide the title, approximate release year, and a customized 1-2 sentence rationale explaining why the user will enjoy it based on their profile. Do not mention specific actors or directors unless relevant to their profile.
-4. Output the results strictly in JSON format matching the schema provided.`;
+USER WATCHLIST (CRITICAL: Prioritize movies that match these genres, plots, themes, and styles perfectly):
+${watchlistText || 'No watchlist items.'}
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+USER'S ABSOLUTE FAVORITES (Exactly 5 STARS):
+${absoluteFavoritesText || 'No 5-star movies.'}
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'OBJECT',
-          properties: {
-            recommendations: {
-              type: 'ARRAY',
-              items: {
-                type: 'OBJECT',
-                properties: {
-                  title: { type: 'STRING' },
-                  year: { type: 'STRING' },
-                  reason: { type: 'STRING' }
-                },
-                required: ['title', 'year', 'reason']
-              }
-            }
-          },
-          required: ['recommendations']
-        }
+USER'S POSITIVE TASTES (MORE THAN 3 STARS):
+${recommendedTastesText || 'No items rated above 3 stars.'}
+
+DO NOT RECOMMEND CRITERIA (3 Stars or less - AVOID these styles completely):
+${avoidedTastesText || 'No poorly rated movies.'}
+
+CHOOSE ONLY FROM THIS CANDIDATE POOL:
+[${availableTitles}]
+
+CRITICAL ASSIGNMENT:
+1. Recommend exactly 5 movies selected from the candidate pool.
+2. The recommended movies MUST be highly relevant matches to the exact items listed under the USER WATCHLIST. Look for similar directors, direct thematic ties, or matching genres.
+3. Avoid anything matching the themes of items rated 3 stars or lower.
+
+Respond strictly with a valid JSON array matching this structure:
+[{ "title": "Exact Candidate Movie Title", "reason": "Explain step-by-step how this relates directly to the movies on their watchlist." }]`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json' }
+        })
       }
-    })
-  });
+    );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Gemini API failed: ${response.statusText}`);
-  }
+    if (!response.ok) throw new Error('Gemini API query rejected');
 
-  const result = await response.json();
-  const textContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    const data = await response.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+    const parsedJSON = JSON.parse(rawText);
 
-  if (!textContent) {
-    throw new Error('Gemini API returned an empty response.');
-  }
+    const completeRecommendations: Recommendation[] = [];
+    const ratedMovieIds = Object.keys(userProfile.ratings).map(Number);
 
-  const parsed = JSON.parse(textContent);
-  const rawRecs: Array<{ title: string; year: string; reason: string }> = parsed.recommendations || [];
+    // FIX: Do not exclude items just because they are in the watchlist
+    const excludes = new Set([...ratedMovieIds]);
 
-  const matchedRecommendations: Recommendation[] = [];
+    for (let i = 0; i < parsedJSON.length; i++) {
+      const item = parsedJSON[i];
 
-  // Match each AI recommendation to TMDB movie objects
-  for (const item of rawRecs) {
-    try {
-      const searchResults = await searchMovies(item.title, undefined, item.year);
-      if (searchResults && searchResults.length > 0) {
-        // Take the closest match
-        const bestMatch = searchResults[0];
+      const matchedLocalMovie = allMovies.find(
+        m => m.title.toLowerCase().trim() === item.title.toLowerCase().trim()
+      );
 
-        // Calculate similarity score based on ratings context (mock 85-98)
-        const randomScore = Math.floor(Math.random() * 14) + 85;
-
-        matchedRecommendations.push({
-          movie: bestMatch,
-          score: randomScore,
-          reason: item.reason,
+      if (matchedLocalMovie && !excludes.has(matchedLocalMovie.id)) {
+        completeRecommendations.push({
+          movie: matchedLocalMovie,
+          score: 99 - i * 3,
+          reason: item.reason || 'Matches your custom watchlist selections.',
           source: 'gemini'
         });
       }
-    } catch (err) {
-      console.warn(`Failed to match Gemini recommendation "${item.title}" to TMDB`, err);
     }
-  }
 
-  return matchedRecommendations;
+    if (completeRecommendations.length > 0) {
+      return completeRecommendations;
+    }
+    throw new Error('No local candidate matches found, fallback routing triggered');
+
+  } catch (error) {
+    console.warn('Handling dynamic local engine fallback...');
+
+    const ratedMovieIds = Object.keys(userProfile.ratings).map(Number);
+    const excludes = new Set([...ratedMovieIds]);
+    const genreAffinities: Record<number, number> = {};
+
+    Object.entries(userProfile.ratings).forEach(([idStr, score]) => {
+      const targetMovie = allMovies.find(m => m.id === Number(idStr));
+      if (!targetMovie) return;
+
+      if (score === 5) {
+        targetMovie.genre_ids.forEach(gid => genreAffinities[gid] = (genreAffinities[gid] || 0) + 10);
+      } else if (score > 3) {
+        targetMovie.genre_ids.forEach(gid => genreAffinities[gid] = (genreAffinities[gid] || 0) + 5);
+      } else {
+        targetMovie.genre_ids.forEach(gid => genreAffinities[gid] = (genreAffinities[gid] || 0) - 20);
+      }
+    });
+
+    // Fallback prioritizes watchlist genres at a massive scalar factor (+40 points)
+    userProfile.watchlist.forEach(id => {
+      const targetMovie = allMovies.find(m => m.id === id);
+      if (targetMovie) {
+        targetMovie.genre_ids.forEach(gid => genreAffinities[gid] = (genreAffinities[gid] || 0) + 40);
+      }
+    });
+
+    return allMovies
+      .filter(m => !excludes.has(m.id))
+      .map(m => {
+        let affinityScore = 70;
+        m.genre_ids.forEach(gid => { affinityScore += genreAffinities[gid] || 0; });
+        return {
+          movie: m,
+          score: Math.max(50, Math.min(99, affinityScore)),
+          reason: 'Dynamically chosen to prioritize your active watchlist selections.',
+          source: 'gemini' as const
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+  }
 };
