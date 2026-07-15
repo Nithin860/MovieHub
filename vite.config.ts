@@ -8,5 +8,5 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  base: '/Movie-Reccomendation/',
+  base: process.env.VERCEL ? '/' : '/Movie-Reccomendation/',
 })
