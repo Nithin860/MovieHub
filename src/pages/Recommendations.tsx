@@ -15,7 +15,7 @@ export const Recommendations: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'client' | 'gemini'>('client');
   const [clientRecs, setClientRecs] = useState<Recommendation[]>([]);
-  
+
   // Gemini AI recommendation states
   const [geminiRecs, setGeminiRecs] = useState<Recommendation[]>([]);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
@@ -30,10 +30,10 @@ export const Recommendations: React.FC = () => {
     return Array.from(map.values());
   }, [popularMovies, trendingMovies, topRatedMovies]);
 
-  // Compute client recommendations when watch history or catalog updates
+  // Compute client recommendations when watch history, watchlist, or catalog updates
   useEffect(() => {
     if (allAvailableMovies.length === 0 || genres.length === 0) return;
-    
+
     const userProfile = {
       watchlist: watchlist.map(m => m.id),
       ratings: Object.fromEntries(
@@ -44,9 +44,10 @@ export const Recommendations: React.FC = () => {
       geminiApiKey: ''
     };
 
+    // Recalculates matching scores immediately whenever watchlist or ratings array changes
     const recs = getClientRecommendations(userProfile, allAvailableMovies, genres);
     setClientRecs(recs);
-  }, [allAvailableMovies, watchlist, ratings, genres]);
+  }, [allAvailableMovies, watchlist, ratings, genres]); // <-- Watchlist dependency ensures structural real-time binding
 
   // Load cached Gemini recommendations on mount
   useEffect(() => {
@@ -65,6 +66,19 @@ export const Recommendations: React.FC = () => {
     setAiLoading(true);
     setAiError(null);
 
+    // 1. Compile history strings dynamically out of active user ratings
+    const historyData = Object.entries(ratings).map(([idStr, item]) => {
+      const movie = allAvailableMovies.find(m => m.id === Number(idStr)) || item.movie;
+      return {
+        title: movie?.title || '',
+        rating: item.rating,
+        year: movie?.release_date ? movie.release_date.substring(0, 4) : '2026'
+      };
+    }).filter(m => m.title !== '');
+
+    // 2. Map watchlist directly to title strings for semantic analysis inside the AI prompt context
+    const watchlistTitles = watchlist.map(m => m.title).filter(t => t !== '');
+
     const userProfile = {
       watchlist: watchlist.map(m => m.id),
       ratings: Object.fromEntries(
@@ -75,17 +89,15 @@ export const Recommendations: React.FC = () => {
       geminiApiKey: ''
     };
 
-    // Format watch history details for Gemini prompt
-    const ratedDetails = Object.values(ratings).map(item => ({
-      title: item.movie.title,
-      rating: item.rating,
-      year: item.movie.release_date ? new Date(item.movie.release_date).getFullYear().toString() : 'N/A'
-    }));
-
-    const watchlistDetails = watchlist.map(m => m.title);
-
     try {
-      const recs = await getGeminiRecommendations(userProfile, ratedDetails, watchlistDetails);
+      // 3. Make the service call passing structural dependencies dynamically!
+      const recs = await getGeminiRecommendations(
+        userProfile,
+        historyData,
+        watchlistTitles,
+        allAvailableMovies // Allows prompt filters to cleanly rank match configurations
+      );
+
       if (recs.length === 0) {
         throw new Error('Gemini could not find matching titles in TMDB. Try generating again.');
       }
@@ -146,22 +158,20 @@ export const Recommendations: React.FC = () => {
           <div className="flex bg-[#09090d] border border-[#1a1a24] p-1.5 rounded-2xl w-fit">
             <button
               onClick={() => setActiveTab('client')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'client'
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'client'
+                ? 'bg-purple-600 text-white shadow-lg'
+                : 'text-gray-400 hover:text-white'
+                }`}
             >
               <Brain className="w-4 h-4" />
               <span>Smart Match (Local)</span>
             </button>
             <button
               onClick={() => setActiveTab('gemini')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'gemini'
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'gemini'
+                ? 'bg-purple-600 text-white shadow-lg'
+                : 'text-gray-400 hover:text-white'
+                }`}
             >
               <Sparkles className="w-4 h-4" />
               <span>Gemini AI Critic</span>
@@ -250,7 +260,7 @@ export const Recommendations: React.FC = () => {
                       <RefreshCw className="w-10 h-10 text-purple-400 animate-spin" />
                       <div className="text-center space-y-1">
                         <p className="text-white font-bold text-sm">Consulting AI Film Critic...</p>
-                        <p className="text-gray-500 text-xs">Analyzing your profile & mapping candidates via TMDB...</p>
+                        <p className="text-gray-500 text-xs">Analyzing your profile & mapping candidates...</p>
                       </div>
                     </div>
                   ) : (
