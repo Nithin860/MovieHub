@@ -11,7 +11,7 @@ import type { Movie, MovieDetail, Genre, CastMember } from '../types'; import {
 const LOCAL_STORAGE_KEY = 'movie_app_tmdb_key';
 
 export const getTmdbKey = (): string => {
-  return localStorage.getItem(LOCAL_STORAGE_KEY) || '';
+  return (import.meta.env.VITE_TMDB_API_KEY as string) || localStorage.getItem(LOCAL_STORAGE_KEY) || '';
 };
 
 export const setTmdbKey = (key: string): void => {

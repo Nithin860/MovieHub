@@ -6,7 +6,7 @@ import { searchMovies } from './tmdb';
 const LOCAL_STORAGE_KEY = 'movie_app_gemini_key';
 
 export const getGeminiKey = (): string => {
-  return localStorage.getItem(LOCAL_STORAGE_KEY) || '';
+  return (import.meta.env.VITE_GEMINI_API_KEY as string) || localStorage.getItem(LOCAL_STORAGE_KEY) || '';
 };
 
 export const setGeminiKey = (key: string): void => {
