@@ -53,9 +53,9 @@ export const Login: React.FC = () => {
           <div className="p-4 bg-purple-600/15 text-purple-400 rounded-2xl border border-purple-500/20">
             <Film className="w-8 h-8 animate-pulse" />
           </div>
-          <h2 className="text-3xl font-black text-white tracking-tight">Welcome back</h2>
+          <h2 className="text-3xl font-black text-white tracking-tight">Welcome to CineMatch</h2>
           <p className="text-gray-400 text-sm text-center">
-            Sign in to access your CineMatch dashboard
+            Your personal film recommendation platform
           </p>
         </div>
 
