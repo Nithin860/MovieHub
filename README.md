@@ -1,65 +1,93 @@
 # CineMatch - Movie Recommendation System
 
-CineMatch is a premium Movie Recommendation web application built using React, TypeScript, Vite, Node.js, Express, and MySQL. It features an advanced client-side filtering system, personalized user profiles (watchlists, ratings), collaborative recommendations, and Gemini AI movie critics.
+CineMatch is a premium movie recommendation web application built with React, TypeScript, Vite, Node.js, Express, and MySQL. It supports authentication, personalized watchlists, ratings, collaborative recommendations, and AI-assisted movie suggestions.
 
-## Setup Instructions
+## Local Development
 
-### 1. Database Setup
-Ensure you have MySQL installed and running.
-1. Run the database initialization schema to create the database and seed the default guest account:
-   ```bash
-   mysql -u root -p < server/schema.sql
-   ```
-2. This creates the database `cinematch` and seeds a default guest account:
-   - **Username/Email**: `guest` or `guest@cinematch.com`
-   - **Password**: `password123`
+### 1. Database setup
+Ensure MySQL is installed and running locally.
 
-### 2. Environment Configuration
-Create a `.env` file in the `server/` directory (you can copy `server/.env.example` as a template):
-```env
-PORT=5000
-DB_HOST=127.0.0.1
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-DB_NAME=cinematch
-DB_PORT=3306
-JWT_SECRET=your_jwt_signing_secret_here
-
-# API Keys (Fallback config)
-TMDB_API_KEY=YOUR_TMDB_API_KEY
-GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+```bash
+mysql -u root -p < server/schema.sql
 ```
 
-### 3. Running the App Locally
+This creates the database `cinematch` and seeds a guest account:
+- Username/Email: `guest`
+- Password: `password123`
 
-To test the application locally, you must run both the frontend Vite server and the backend Express server.
+### 2. Environment configuration
+Create a root `.env` file and a server `.env` file from the examples:
 
-1. **Start the Backend Server**:
-   Open a terminal window and run:
-   ```bash
-   npm run dev:backend
-   ```
-2. **Start the Frontend Client**:
-   Open a second terminal window and run:
-   ```bash
-   npm run dev
-   ```
-3. Open your browser and navigate to `http://localhost:5173`.
+```bash
+cp .env.example .env
+cp server/.env.example server/.env
+```
 
----
+Example values:
 
-## Production Deployment (Vercel)
+```env
+# Root frontend env
+VITE_API_URL=http://localhost:5000
+VITE_BASE_PATH=/
+TMDB_API_KEY=your_tmdb_api_key_here
+```
 
-The repository contains a `vercel.json` file configuring the Express server as a serverless function and serving the Vite static build from the root.
+```env
+# Server env
+PORT=5000
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=root
+DB_NAME=cinematch
+DB_PORT=3306
+JWT_SECRET=change_me
+TMDB_API_KEY=your_tmdb_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+FRONTEND_URL=http://localhost:5173
+```
 
-To deploy live on Vercel:
-1. Push your repository to GitHub.
-2. In your Vercel Dashboard, import the repository.
-3. Configure the following **Environment Variables** in Settings:
-   - `DB_HOST` = `<your_public_database_host>`
-   - `DB_USER` = `<your_public_database_user>`
-   - `DB_PASSWORD` = `<your_public_database_password>`
-   - `DB_NAME` = `cinematch`
-   - `DB_PORT` = `3306`
-   - `JWT_SECRET` = `<your_jwt_secret>`
-4. Trigger the deployment. Vercel will build the frontend and serve `/api/*` endpoints via the serverless function.
+### 3. Run the app locally
+
+Open two terminals:
+
+```bash
+npm run dev:backend
+```
+
+```bash
+npm run dev
+```
+
+Then open http://localhost:5173.
+
+## Production deployment
+
+### Recommended host: Render
+1. Create a Render Web Service for the backend using the contents of the `server` folder.
+2. Set the environment variables:
+   - `PORT=5000`
+   - `DB_HOST=...`
+   - `DB_USER=...`
+   - `DB_PASSWORD=...`
+   - `DB_NAME=cinematch`
+   - `DB_PORT=3306`
+   - `JWT_SECRET=...`
+   - `TMDB_API_KEY=...`
+   - `GEMINI_API_KEY=...`
+   - `FRONTEND_URL=https://your-frontend-domain` 
+3. Deploy the service and note the public HTTPS URL.
+4. Deploy the frontend to Vercel or Netlify and set the root env var:
+   - `VITE_API_URL=https://your-backend-url`
+   - `VITE_BASE_PATH=/`
+
+### Alternative: Vercel
+The included Vercel config routes `/api/*` to the Express server entrypoint. Configure the same environment variables in the Vercel project settings.
+
+## Feature checklist
+- User signup and login
+- JWT-based authenticated sessions
+- Watchlist management
+- Ratings and profile history
+- Collaborative recommendations
+- AI recommendations powered by TMDB and Gemini
+

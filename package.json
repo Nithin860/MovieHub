@@ -11,7 +11,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "postinstall": "npm --prefix server install"
   },
   "dependencies": {
     "lucide-react": "^1.24.0",

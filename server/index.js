@@ -10,12 +10,30 @@ import { getCollaborativeRecommendations, getGeminiAIRecommendations } from './r
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'cinematch_super_secret_secret';
+const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'].filter(Boolean);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: true
+}));
 app.use(express.json());
+
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', service: 'cinematch-api' });
+});
+
+app.get('/', (_req, res) => {
+  res.json({ message: 'CineMatch API is running.' });
+});
 
 // Helper to query TMDB API proxy securely
 const fetchFromTMDB = async (endpoint, params = {}) => {
@@ -416,6 +434,14 @@ app.post('/api/profile/ai-recommendations', authenticateToken, async (req, res) 
 });
 
 // Start Server
-app.listen(PORT, () => {
-  console.log(`CineMatch Server running on port ${PORT}`);
-});
+const startServer = () => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`CineMatch Server running on port ${PORT}`);
+  });
+};
+
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

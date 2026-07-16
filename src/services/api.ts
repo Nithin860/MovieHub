@@ -1,6 +1,16 @@
 import type { Movie, Recommendation } from '../types';
 
-const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api';
+const getApiBase = (): string => {
+  const configuredUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+
+  if (configuredUrl) {
+    return configuredUrl.endsWith('/api') ? configuredUrl : `${configuredUrl.replace(/\/$/, '')}/api`;
+  }
+
+  return '/api';
+};
+
+const API_BASE = getApiBase();
 
 const getAuthToken = (): string => {
   return localStorage.getItem('movie_app_auth_token') || '';
