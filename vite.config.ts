@@ -9,4 +9,12 @@ export default defineConfig({
     tailwindcss(),
   ],
   base: process.env.VERCEL ? '/' : '/Movie-Reccomendation/',
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      }
+    }
+  }
 })

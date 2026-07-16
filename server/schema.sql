@@ -1,5 +1,3 @@
--- MySQL Database initialization schema for CineMatch
-
 CREATE DATABASE IF NOT EXISTS cinematch;
 USE cinematch;
 

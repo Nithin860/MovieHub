@@ -1,6 +1,6 @@
 import type { Movie, Recommendation } from '../types';
 
-const API_BASE = (import.meta.env.VITE_API_URL as string) || 'http://localhost:5000/api';
+const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api';
 
 const getAuthToken = (): string => {
   return localStorage.getItem('movie_app_auth_token') || '';
