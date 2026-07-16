@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
-import { Film, Mail, Lock, AlertCircle, Loader } from 'lucide-react';
+import { Film, Mail, User, Lock, AlertCircle, Loader } from 'lucide-react';
 
-export const Login: React.FC = () => {
-  const { user, loginUser, loading } = useUser();
+export const Signup: React.FC = () => {
+  const { user, signupUser, loading } = useUser();
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -25,23 +27,38 @@ export const Login: React.FC = () => {
     setSuccess(null);
 
     if (!username.trim()) {
-      setError('Username or Email is required.');
+      setError('Username is required.');
       return;
     }
 
-    if (!password) {
-      setError('Password is required.');
+    if (!email.trim()) {
+      setError('Email is required.');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
 
     try {
-      await loginUser(username.trim(), password);
-      setSuccess('Logged in successfully!');
+      await signupUser(username.trim(), email.trim(), password);
+      setSuccess('Account created successfully!');
       setTimeout(() => {
         navigate('/', { replace: true });
       }, 800);
     } catch (err: any) {
-      setError(err.message || 'Authentication failed. Invalid credentials.');
+      setError(err.message || 'Signup failed. Please try again.');
     }
   };
 
@@ -53,9 +70,9 @@ export const Login: React.FC = () => {
           <div className="p-4 bg-purple-600/15 text-purple-400 rounded-2xl border border-purple-500/20">
             <Film className="w-8 h-8 animate-pulse" />
           </div>
-          <h2 className="text-3xl font-black text-white tracking-tight">Welcome back</h2>
+          <h2 className="text-3xl font-black text-white tracking-tight">Create account</h2>
           <p className="text-gray-400 text-sm text-center">
-            Sign in to access your CineMatch dashboard
+            Sign up to unlock personalized AI recommendations
           </p>
         </div>
 
@@ -79,17 +96,36 @@ export const Login: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Username or Email
+              Username
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+                <User className="w-5 h-5" />
+              </span>
+              <input
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="Choose a username"
+                disabled={loading}
+                className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Email Address
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
                 <Mail className="w-5 h-5" />
               </span>
               <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="Enter username or email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Enter email address"
                 disabled={loading}
                 className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
@@ -108,7 +144,26 @@ export const Login: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Enter password"
+                placeholder="Enter password (min. 6 chars)"
+                disabled={loading}
+                className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              Confirm Password
+            </label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+                <Lock className="w-5 h-5" />
+              </span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Repeat password"
                 disabled={loading}
                 className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
@@ -123,7 +178,7 @@ export const Login: React.FC = () => {
             {loading ? (
               <Loader className="w-5 h-5 animate-spin" />
             ) : (
-              'Sign In'
+              'Create Account'
             )}
           </button>
         </form>
@@ -131,12 +186,12 @@ export const Login: React.FC = () => {
         {/* Toggle Link */}
         <div className="mt-8 text-center">
           <p className="text-gray-400 text-sm">
-            Don't have an account?
+            Already have an account?
             <Link
-              to="/signup"
+              to="/login"
               className="ml-2 text-purple-400 hover:text-purple-300 font-semibold focus:outline-none cursor-pointer"
             >
-              Sign up
+              Sign in
             </Link>
           </p>
         </div>

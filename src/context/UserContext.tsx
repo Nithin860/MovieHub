@@ -3,6 +3,7 @@ import type { Movie } from '../types';
 import {
   apiSignup,
   apiLogin,
+  apiLogout,
   apiGetMe,
   apiGetWatchlist,
   apiAddToWatchlist,
@@ -35,7 +36,7 @@ interface UserContextType {
   clearGeminiKey: () => void;
   loginUser: (username: string, password: string) => Promise<void>;
   signupUser: (username: string, email: string, password: string) => Promise<void>;
-  logoutUser: () => void;
+  logoutUser: () => Promise<void>;
   toggleWatchlist: (movie: Movie) => Promise<void>;
   isInWatchlist: (movieId: number) => boolean;
   rateMovie: (movie: Movie, rating: number) => Promise<void>;
@@ -165,14 +166,20 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logoutUser = () => {
-    removeAuthToken();
-    setUser(null);
-    setWatchlist([]);
-    setRatings({});
-    localStorage.removeItem('movie_app_gemini_recs_cache');
-    localStorage.removeItem('movie_app_watchlist_backup');
-    localStorage.removeItem('movie_app_ratings_backup');
+  const logoutUser = async () => {
+    try {
+      await apiLogout();
+    } catch (e) {
+      console.warn('Backend logout failed', e);
+    } finally {
+      removeAuthToken();
+      setUser(null);
+      setWatchlist([]);
+      setRatings({});
+      localStorage.removeItem('movie_app_gemini_recs_cache');
+      localStorage.removeItem('movie_app_watchlist_backup');
+      localStorage.removeItem('movie_app_ratings_backup');
+    }
   };
 
   // UPDATED: Standard client-side fallback storage mechanism

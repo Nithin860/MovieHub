@@ -10,6 +10,7 @@ import { MovieDetails } from './pages/MovieDetails';
 import { Watchlist } from './pages/Watchlist';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import './App.css';
 
@@ -22,6 +23,7 @@ const App: React.FC = () => {
             <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
 
               {/* Protected Routes */}
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />

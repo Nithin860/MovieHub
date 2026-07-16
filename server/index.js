@@ -127,6 +127,11 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Logout User
+app.post('/api/auth/logout', (req, res) => {
+  res.json({ success: true, message: 'Logged out successfully.' });
+});
+
 // Get Current User profile
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
