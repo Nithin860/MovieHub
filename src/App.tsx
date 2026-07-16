@@ -43,4 +43,5 @@ const App: React.FC = () => {
   );
 };
 
+// CineMatch - Full-stack movie recommendation system
 export default App;
