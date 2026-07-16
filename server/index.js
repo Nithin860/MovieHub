@@ -12,8 +12,8 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'cinematch_super_secret_secret';
-const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173', 'https://movie-hub-delta-virid.vercel.app'].filter(Boolean);
-const allowedOriginPatterns = [/^https:\/\/.*\.vercel\.app$/i, /^https:\/\/.*\.netlify\.app$/i];
+const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:5175', 'http://127.0.0.1:5175', 'http://localhost:5176', 'http://127.0.0.1:5176', 'https://movie-hub-delta-virid.vercel.app'].filter(Boolean);
+const allowedOriginPatterns = [/^https:\/\/.*\.vercel\.app$/i, /^https:\/\/.*\.netlify\.app$/i, /^http:\/\/localhost:\d+$/i, /^http:\/\/127\.0\.0\.1:\d+$/i];
 
 const fallbackUsers = new Map();
 const fallbackWatchlists = new Map();
