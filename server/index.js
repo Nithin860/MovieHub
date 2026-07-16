@@ -58,17 +58,22 @@ const authenticateToken = (req, res, next) => {
 
 // Register User
 app.post('/api/auth/signup', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, email, password } = req.body;
   
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required.' });
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: 'Username, email, and password are required.' });
   }
   
   try {
-    // Check if user already exists
-    const [existing] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
-    if (existing.length > 0) {
+    // Check if username or email already exists
+    const [existingUsername] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
+    if (existingUsername.length > 0) {
       return res.status(400).json({ error: 'Username is already taken.' });
+    }
+
+    const [existingEmail] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingEmail.length > 0) {
+      return res.status(400).json({ error: 'Email is already registered.' });
     }
     
     // Hash password
@@ -76,14 +81,14 @@ app.post('/api/auth/signup', async (req, res) => {
     
     // Insert User
     const [result] = await db.query(
-      'INSERT INTO users (username, password) VALUES (?, ?)',
-      [username, hashedPassword]
+      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+      [username, email, hashedPassword]
     );
     
     const userId = result.insertId;
-    const token = jwt.sign({ id: userId, username }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: userId, username, email }, JWT_SECRET, { expiresIn: '7d' });
     
-    res.status(201).json({ token, user: { id: userId, username } });
+    res.status(201).json({ token, user: { id: userId, username, email } });
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -92,15 +97,15 @@ app.post('/api/auth/signup', async (req, res) => {
 
 // Login User
 app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password } = req.body; // username can be username or email
   
   if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required.' });
+    return res.status(400).json({ error: 'Username/Email and password are required.' });
   }
   
   try {
-    // Find User
-    const [users] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    // Find User by username OR email
+    const [users] = await db.query('SELECT * FROM users WHERE username = ? OR email = ?', [username, username]);
     if (users.length === 0) {
       return res.status(400).json({ error: 'Invalid username or password.' });
     }
@@ -113,9 +118,9 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid username or password.' });
     }
     
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, username: user.username, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     
-    res.json({ token, user: { id: user.id, username: user.username } });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -125,9 +130,9 @@ app.post('/api/auth/login', async (req, res) => {
 // Get Current User profile
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
-    const [users] = await db.query('SELECT id, username FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await db.query('SELECT id, username, email FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) {
-      return res.status(444).json({ error: 'User profile not found.' });
+      return res.status(404).json({ error: 'User profile not found.' });
     }
     res.json({ user: users[0] });
   } catch (error) {

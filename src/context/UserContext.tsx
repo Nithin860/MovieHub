@@ -25,7 +25,7 @@ interface RatedMovie {
 }
 
 interface UserContextType {
-  user: { id: number; username: string } | null;
+  user: { id: number; username: string; email?: string } | null;
   watchlist: Movie[];
   ratings: Record<number, RatedMovie>;
   loading: boolean;
@@ -34,7 +34,7 @@ interface UserContextType {
   updateGeminiKey: (key: string) => void;
   clearGeminiKey: () => void;
   loginUser: (username: string, password: string) => Promise<void>;
-  signupUser: (username: string, password: string) => Promise<void>;
+  signupUser: (username: string, email: string, password: string) => Promise<void>;
   logoutUser: () => void;
   toggleWatchlist: (movie: Movie) => Promise<void>;
   isInWatchlist: (movieId: number) => boolean;
@@ -47,11 +47,7 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // MOCKED SESSION: Automatically logs you in as a Guest to bypass backend auth blockers
-  const [user, setUser] = useState<{ id: number; username: string } | null>({
-    id: 1,
-    username: 'GuestViewer'
-  });
+  const [user, setUser] = useState<{ id: number; username: string; email?: string } | null>(null);
 
   // INITIALIZATION: Loads backup watchlists and ratings straight from local storage if available
   const [watchlist, setWatchlist] = useState<Movie[]>(() => {
@@ -94,13 +90,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Restore session on mount
   useEffect(() => {
     const restoreSession = async () => {
+      setLoading(true);
       if (isLoggedIn()) {
         try {
           const profile = await apiGetMe();
           setUser(profile.user);
           await syncCollections();
         } catch (e) {
-          console.warn('Session restore failed. Falling back to default guest runtime.');
+          console.warn('Session restore failed.');
+          removeAuthToken();
+          setUser(null);
         }
       }
       setLoading(false);
@@ -140,17 +139,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('movie_app_ratings_backup', JSON.stringify(ratingsMap));
     } catch (error) {
       removeAuthToken();
-      setUser({ id: 1, username: 'GuestViewer' });
+      setUser(null);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  const signupUser = async (username: string, password: string) => {
+  const signupUser = async (username: string, email: string, password: string) => {
     setLoading(true);
     try {
-      const data = await apiSignup(username, password);
+      const data = await apiSignup(username, email, password);
       setAuthToken(data.token);
       setUser(data.user);
       setWatchlist([]);
@@ -159,7 +158,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('movie_app_ratings_backup');
     } catch (error) {
       removeAuthToken();
-      setUser({ id: 1, username: 'GuestViewer' });
+      setUser(null);
       throw error;
     } finally {
       setLoading(false);
@@ -168,7 +167,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logoutUser = () => {
     removeAuthToken();
-    setUser({ id: 1, username: 'GuestViewer' });
+    setUser(null);
     setWatchlist([]);
     setRatings({});
     localStorage.removeItem('movie_app_gemini_recs_cache');

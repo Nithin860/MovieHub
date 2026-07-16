@@ -44,10 +44,10 @@ const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
 
 // ================= AUTH API =================
 
-export const apiSignup = async (username: string, password: string) => {
+export const apiSignup = async (username: string, email: string, password: string) => {
   return apiFetch('/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({ username, email, password })
   });
 };
 

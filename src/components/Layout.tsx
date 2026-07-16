@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { Home, Search, Sparkles, Bookmark, Settings, Menu, X, Film } from 'lucide-react';
+import { Home, Search, Sparkles, Bookmark, Settings, Menu, X, Film, LogOut } from 'lucide-react';
 import { useMovies } from '../context/MovieContext';
+import { useUser } from '../context/UserContext';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { demoMode } = useMovies();
+  const { user, logoutUser } = useUser();
 
   const navItems = [
     { to: '/', label: 'Home', icon: Home },
@@ -14,6 +16,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     { to: '/watchlist', label: 'Watchlist', icon: Bookmark },
     { to: '/settings', label: 'Settings', icon: Settings },
   ];
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#050507] text-[#f3f4f6] flex flex-col justify-center">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050507] text-[#f3f4f6] flex flex-col md:flex-row">
@@ -61,18 +71,29 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           </nav>
         </div>
 
-        {/* Demo Mode Badge */}
-        <div className="px-2">
-          {demoMode ? (
-            <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-400/90 text-center">
-              <p className="font-semibold mb-1">Demo Mode Active</p>
-              <p className="opacity-75">Connect API keys in settings to unlock real TMDB & Gemini AI features.</p>
-            </div>
-          ) : (
-            <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 text-xs text-emerald-400/90 text-center">
-              <span className="font-semibold">Live Mode Connected</span>
-            </div>
-          )}
+        {/* Sidebar Footer (Logout + Badge) */}
+        <div className="space-y-4 w-full">
+          <button
+            onClick={logoutUser}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all duration-200 text-gray-400 hover:bg-red-500/10 hover:text-red-400 border border-transparent text-sm font-medium cursor-pointer"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Logout</span>
+          </button>
+
+          {/* Demo Mode Badge */}
+          <div className="px-2">
+            {demoMode ? (
+              <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-400/90 text-center">
+                <p className="font-semibold mb-1">Demo Mode Active</p>
+                <p className="opacity-75">Connect API keys in settings to unlock real TMDB & Gemini AI features.</p>
+              </div>
+            ) : (
+              <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 text-xs text-emerald-400/90 text-center">
+                <span className="font-semibold">Live Mode Connected</span>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
@@ -112,6 +133,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <span>{item.label}</span>
                 </NavLink>
               ))}
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logoutUser();
+                }}
+                className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-base font-semibold transition-all text-gray-400 hover:bg-red-500/10 hover:text-red-400 border border-transparent cursor-pointer"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Logout</span>
+              </button>
             </div>
 
             {/* Mobile Badge */}
