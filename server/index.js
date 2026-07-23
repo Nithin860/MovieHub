@@ -46,7 +46,8 @@ app.use(cors({
     }
     callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning']
 }));
 app.use(express.json());
 

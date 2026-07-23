@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
-import { User as UserIcon, Mail, Phone, Lock, Save, AlertCircle, CheckCircle, Shield, Loader } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, Lock, Save, AlertCircle, CheckCircle, Shield, Loader, Eye, EyeOff } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { user, updateProfile, loading } = useUser();
@@ -9,6 +9,8 @@ export const Dashboard: React.FC = () => {
   const [phone, setPhone] = useState(user?.phone || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -189,13 +191,20 @@ export const Dashboard: React.FC = () => {
                 <Lock className="w-5 h-5" />
               </span>
               <input
-                type="password"
+                type={showNewPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
                 placeholder="Leave blank to keep current password"
                 disabled={loading}
-                className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
+                className="w-full pl-11 pr-12 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(prev => !prev)}
+                className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
@@ -208,13 +217,20 @@ export const Dashboard: React.FC = () => {
                 <Lock className="w-5 h-5" />
               </span>
               <input
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="Repeat new password"
                 disabled={loading}
-                className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
+                className="w-full pl-11 pr-12 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(prev => !prev)}
+                className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
         </div>
