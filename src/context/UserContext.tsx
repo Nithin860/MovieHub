@@ -12,6 +12,7 @@ import {
   apiSaveRating,
   apiDeleteRating,
   apiResetProfile,
+  apiUpdateProfile,
   setAuthToken,
   removeAuthToken,
   isLoggedIn
@@ -25,17 +26,24 @@ interface RatedMovie {
   timestamp: number;
 }
 
+export interface User {
+  id: number;
+  username: string;
+  email?: string;
+  phone?: string;
+}
+
 interface UserContextType {
-  user: { id: number; username: string; email?: string } | null;
+  user: User | null;
   watchlist: Movie[];
   ratings: Record<number, RatedMovie>;
   loading: boolean;
-  // Added properties to solve compile issues in Recommendations and Settings components
   geminiKey: string;
   updateGeminiKey: (key: string) => void;
   clearGeminiKey: () => void;
   loginUser: (username: string, password: string) => Promise<void>;
-  signupUser: (username: string, email: string, password: string) => Promise<void>;
+  signupUser: (username: string, email: string, password: string, phone?: string) => Promise<void>;
+  updateProfile: (data: { username: string; phone?: string; password?: string }) => Promise<void>;
   logoutUser: () => Promise<void>;
   toggleWatchlist: (movie: Movie) => Promise<void>;
   isInWatchlist: (movieId: number) => boolean;
@@ -147,20 +155,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signupUser = async (username: string, email: string, password: string) => {
+  const signupUser = async (username: string, email: string, password: string, phone?: string) => {
     setLoading(true);
     try {
-      const data = await apiSignup(username, email, password);
-      setAuthToken(data.token);
-      setUser(data.user);
-      setWatchlist([]);
-      setRatings({});
-      localStorage.removeItem('movie_app_watchlist_backup');
-      localStorage.removeItem('movie_app_ratings_backup');
-    } catch (error) {
-      removeAuthToken();
-      setUser(null);
-      throw error;
+      await apiSignup(username, email, password, phone);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async (data: { username: string; phone?: string; password?: string }) => {
+    setLoading(true);
+    try {
+      const res = await apiUpdateProfile(data);
+      if (res.user) {
+        setUser(res.user);
+      }
     } finally {
       setLoading(false);
     }
@@ -278,6 +288,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearGeminiKey,
         loginUser,
         signupUser,
+        updateProfile,
         logoutUser,
         toggleWatchlist,
         isInWatchlist,

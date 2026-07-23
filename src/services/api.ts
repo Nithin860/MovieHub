@@ -54,10 +54,10 @@ const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
 
 // ================= AUTH API =================
 
-export const apiSignup = async (username: string, email: string, password: string) => {
+export const apiSignup = async (username: string, email: string, password: string, phone?: string) => {
   return apiFetch('/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ username, email, password })
+    body: JSON.stringify({ username, email, password, phone })
   });
 };
 
@@ -76,6 +76,13 @@ export const apiLogout = async () => {
 
 export const apiGetMe = async () => {
   return apiFetch('/auth/me');
+};
+
+export const apiUpdateProfile = async (data: { username: string; phone?: string; password?: string }) => {
+  return apiFetch('/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
 };
 
 // ================= MOVIES PROXY API =================

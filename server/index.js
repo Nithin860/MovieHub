@@ -99,7 +99,7 @@ const authenticateToken = (req, res, next) => {
 
 // Register User
 app.post('/api/auth/signup', async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, phone } = req.body;
   
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Username, email, and password are required.' });
@@ -118,14 +118,14 @@ app.post('/api/auth/signup', async (req, res) => {
     
     const hashedPassword = await bcrypt.hash(password, 10);
     const [result] = await db.query(
-      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-      [username, email, hashedPassword]
+      'INSERT INTO users (username, email, password, phone) VALUES (?, ?, ?, ?)',
+      [username, email, hashedPassword, phone || null]
     );
     
     const userId = result.insertId;
     const token = jwt.sign({ id: userId, username, email }, JWT_SECRET, { expiresIn: '7d' });
     
-    res.status(201).json({ token, user: { id: userId, username, email } });
+    res.status(201).json({ token, user: { id: userId, username, email, phone: phone || null } });
   } catch (error) {
     console.warn('Database unavailable during signup; using fallback auth store.', error.message);
     const normalizedUsername = username.toLowerCase();
@@ -137,7 +137,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userId = fallbackUsers.size + 1;
-    const fallbackUser = { id: userId, username, email, password: hashedPassword };
+    const fallbackUser = { id: userId, username, email, password: hashedPassword, phone: phone || null };
     fallbackUsers.set(userId, fallbackUser);
     fallbackUsers.set(normalizedUsername, fallbackUser);
     fallbackUsers.set(normalizedEmail, fallbackUser);
@@ -145,7 +145,7 @@ app.post('/api/auth/signup', async (req, res) => {
     fallbackRatings.set(userId, []);
 
     const token = jwt.sign({ id: userId, username, email }, JWT_SECRET, { expiresIn: '7d' });
-    res.status(201).json({ token, user: { id: userId, username, email } });
+    res.status(201).json({ token, user: { id: userId, username, email, phone: phone || null } });
   }
 });
 
@@ -171,7 +171,7 @@ app.post('/api/auth/login', async (req, res) => {
     
     const token = jwt.sign({ id: user.id, username: user.username, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, phone: user.phone || null } });
   } catch (error) {
     console.warn('Database unavailable during login; using fallback auth store.', error.message);
     const normalizedUsername = username.toLowerCase();
@@ -187,7 +187,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: fallbackUser.id, username: fallbackUser.username, email: fallbackUser.email }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: fallbackUser.id, username: fallbackUser.username, email: fallbackUser.email } });
+    res.json({ token, user: { id: fallbackUser.id, username: fallbackUser.username, email: fallbackUser.email, phone: fallbackUser.phone || null } });
   }
 });
 
@@ -199,13 +199,69 @@ app.post('/api/auth/logout', (req, res) => {
 // Get Current User profile
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
-    const [users] = await db.query('SELECT id, username, email FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await db.query('SELECT id, username, email, phone FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
     res.json({ user: users[0] });
   } catch (error) {
+    const fallbackUser = fallbackUsers.get(req.user.id);
+    if (fallbackUser) {
+      return res.json({ user: { id: fallbackUser.id, username: fallbackUser.username, email: fallbackUser.email, phone: fallbackUser.phone || null } });
+    }
     res.status(500).json({ error: 'Failed to retrieve profile.' });
+  }
+});
+
+// Update User Profile (Username, Phone, Password)
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  const { username, phone, password } = req.body;
+  const userId = req.user.id;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required.' });
+  }
+
+  try {
+    const [existing] = await db.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]);
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Username is already taken.' });
+    }
+
+    let query = 'UPDATE users SET username = ?, phone = ?';
+    let params = [username, phone || null];
+
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      query += ', password = ?';
+      params.push(hashedPassword);
+    }
+
+    query += ' WHERE id = ?';
+    params.push(userId);
+
+    await db.query(query, params);
+
+    const [updated] = await db.query('SELECT id, username, email, phone FROM users WHERE id = ?', [userId]);
+    res.json({ success: true, message: 'Profile updated successfully.', user: updated[0] });
+  } catch (error) {
+    console.warn('Database error during update, using fallback store.', error.message);
+    const fallbackUser = fallbackUsers.get(userId);
+    if (!fallbackUser) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    fallbackUser.username = username;
+    fallbackUser.phone = phone || null;
+    if (password) {
+      fallbackUser.password = await bcrypt.hash(password, 10);
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: { id: userId, username, email: fallbackUser.email, phone: fallbackUser.phone }
+    });
   }
 });
 
