@@ -77,7 +77,7 @@ export const Login: React.FC = () => {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-5">
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
               Username or Email
@@ -92,6 +92,7 @@ export const Login: React.FC = () => {
                 onChange={e => setUsername(e.target.value)}
                 placeholder="Enter username or email"
                 disabled={loading}
+                autoComplete="off"
                 className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
             </div>
@@ -111,6 +112,7 @@ export const Login: React.FC = () => {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Enter password"
                 disabled={loading}
+                autoComplete="new-password"
                 className="w-full pl-11 pr-12 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
               <button

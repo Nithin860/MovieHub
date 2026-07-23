@@ -102,7 +102,7 @@ export const Signup: React.FC = () => {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
               Username / Name
@@ -117,6 +117,7 @@ export const Signup: React.FC = () => {
                 onChange={e => setUsername(e.target.value)}
                 placeholder="At least 3 characters"
                 disabled={loading}
+                autoComplete="off"
                 className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
             </div>
@@ -136,6 +137,7 @@ export const Signup: React.FC = () => {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="name@example.com"
                 disabled={loading}
+                autoComplete="off"
                 className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
             </div>
@@ -155,6 +157,7 @@ export const Signup: React.FC = () => {
                 onChange={e => setPhone(e.target.value)}
                 placeholder="10-digit phone number"
                 disabled={loading}
+                autoComplete="off"
                 className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
             </div>
@@ -174,6 +177,7 @@ export const Signup: React.FC = () => {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Min 8 chars, Uppercase, Number & Special symbol"
                 disabled={loading}
+                autoComplete="new-password"
                 className="w-full pl-11 pr-12 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
               <button
@@ -200,6 +204,7 @@ export const Signup: React.FC = () => {
                 onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="Repeat password"
                 disabled={loading}
+                autoComplete="new-password"
                 className="w-full pl-11 pr-12 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
               />
               <button
