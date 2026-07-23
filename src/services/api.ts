@@ -7,6 +7,11 @@ const getApiBase = (): string => {
     return configuredUrl.endsWith('/api') ? configuredUrl : `${configuredUrl.replace(/\/$/, '')}/api`;
   }
 
+  // Automatic ngrok tunnel resolution for Vercel live app to connect directly to local MySQL
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return 'https://harpist-chant-class.ngrok-free.dev/api';
+  }
+
   return '/api';
 };
 
