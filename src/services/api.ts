@@ -11,7 +11,7 @@ const getApiBase = (): string => {
     return 'https://harpist-chant-class.ngrok-free.dev/api';
   }
 
-  if (configuredUrl) {
+  if (configuredUrl && !configuredUrl.includes('example.com')) {
     return configuredUrl.endsWith('/api') ? configuredUrl : `${configuredUrl.replace(/\/$/, '')}/api`;
   }
 
