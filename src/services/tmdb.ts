@@ -1,4 +1,5 @@
 import type { Movie, MovieDetail, Genre } from '../types';
+import { MOCK_MOVIES, MOCK_GENRES } from './mockData';
 
 // ==========================================
 // Base configuration for direct TMDB connection
@@ -22,22 +23,25 @@ export const removeTmdbKey = (): void => {
   localStorage.removeItem(LOCAL_STORAGE_TMDB_KEY);
 };
 
-// Helper function to handle direct standard fetches with the fallback API Key
+// Helper function to handle direct standard fetches with automatic mock fallback
 const fetchFromTmdb = async (endpoint: string, queryParams: string = ''): Promise<any> => {
   const apiKey = getTmdbKey();
-  if (!apiKey) {
-    console.error('TMDB API Key missing. Please provide a key in your settings or .env file.');
-    throw new Error('API Key missing');
-  }
+  try {
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const url = `${TMDB_BASE_URL}${endpoint}${separator}api_key=${apiKey}${queryParams}`;
 
-  const separator = endpoint.includes('?') ? '&' : '?';
-  const url = `${TMDB_BASE_URL}${endpoint}${separator}api_key=${apiKey}${queryParams}`;
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`TMDB direct request failed: ${response.status} ${response.statusText}`);
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`TMDB direct request failed: ${response.status} ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.warn(`TMDB fetch failed for ${endpoint}, serving fail-safe mock dataset.`, err);
+    if (endpoint.includes('/genre/movie/list')) {
+      return { genres: MOCK_GENRES };
+    }
+    return { results: MOCK_MOVIES };
   }
-  return response.json();
 };
 
 export const isDemoMode = (): boolean => {

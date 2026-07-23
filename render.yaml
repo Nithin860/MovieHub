@@ -5,24 +5,27 @@ services:
     plan: free
     buildCommand: npm install && npm --prefix server install
     startCommand: npm --prefix server start
+    apiKey: $GCP_API_KEY
     envVars:
-      - key: PORT
-        value: 5000
-      - key: DB_HOST
-        value: localhost
-      - key: DB_USER
-        value: root
-      - key: DB_PASSWORD
-        value: root
-      - key: DB_NAME
-        value: cinematch
-      - key: DB_PORT
-        value: 3306
-      - key: JWT_SECRET
-        value: change_me
-      - key: TMDB_API_KEY
-        value: f7f4fea187e43720972be14e61291cd2
-      - key: GEMINI_API_KEY
-        value: AQ.Ab8RN6LG4PLQ7sE16HOmK8KimLe6KyPZ-AkEm_rXSskpJ8YySg
-      - key: FRONTEND_URL
-        value: https://your-frontend-domain
+      - key1:PORT
+        value1:5000
+      - key2:DB_HOST
+        value2:localhost
+      - key3:DB_USER
+        value3:root
+      - key4 :B_PASSWORD
+        value4:root
+      - key5:DB_NAME
+        value5:cinematch
+      - key6:DB_PORT
+        value6:3306
+      - key7:JWT_SECRET
+        value7:cinematch_super_secret_secret
+      - key8:TMDB_API_KEY
+        value8:f7f4fea187e43720972be14e61291cd2
+      - key9:GEMINI_API_KEY
+        value9:AQ.Ab8RN6LG4PLQ7sE16HOmK8KimLe6KyPZ-AkEm_rXSskpJ8YySg
+      - key10:FRONTEND_URL
+        value10:movie-hub-delta-virid.vercel.app
+
+      

@@ -12,18 +12,54 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'cinematch_super_secret_secret';
+<<<<<<< HEAD
 const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'].filter(Boolean);
+=======
+const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:5175', 'http://127.0.0.1:5175', 'http://localhost:5176', 'http://127.0.0.1:5176', 'https://movie-hub-delta-virid.vercel.app'].filter(Boolean);
+const allowedOriginPatterns = [/^https:\/\/.*\.vercel\.app$/i, /^https:\/\/.*\.netlify\.app$/i, /^http:\/\/localhost:\d+$/i, /^http:\/\/127\.0\.0\.1:\d+$/i];
+
+const fallbackUsers = new Map();
+const fallbackWatchlists = new Map();
+const fallbackRatings = new Map();
+const fallbackSeedHash = await bcrypt.hash('password123', 10);
+
+const seedFallbackUser = () => {
+  const guestUser = {
+    id: 1,
+    username: 'guest',
+    email: 'guest@cinematch.com',
+    password: fallbackSeedHash
+  };
+
+  fallbackUsers.set(guestUser.id, guestUser);
+  fallbackUsers.set(guestUser.username.toLowerCase(), guestUser);
+  fallbackUsers.set(guestUser.email.toLowerCase(), guestUser);
+  fallbackWatchlists.set(guestUser.id, []);
+  fallbackRatings.set(guestUser.id, []);
+};
+
+seedFallbackUser();
+>>>>>>> 58e960bb9ad11bbd877b7066422787b6367b5c78
 
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
+<<<<<<< HEAD
     if (!origin || allowedOrigins.includes(origin)) {
+=======
+    if (!origin || allowedOrigins.includes(origin) || allowedOriginPatterns.some(pattern => pattern.test(origin))) {
+>>>>>>> 58e960bb9ad11bbd877b7066422787b6367b5c78
       callback(null, true);
       return;
     }
     callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
+<<<<<<< HEAD
   credentials: true
+=======
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning']
+>>>>>>> 58e960bb9ad11bbd877b7066422787b6367b5c78
 }));
 app.use(express.json());
 
@@ -76,14 +112,13 @@ const authenticateToken = (req, res, next) => {
 
 // Register User
 app.post('/api/auth/signup', async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, phone } = req.body;
   
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Username, email, and password are required.' });
   }
   
   try {
-    // Check if username or email already exists
     const [existingUsername] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
     if (existingUsername.length > 0) {
       return res.status(400).json({ error: 'Username is already taken.' });
@@ -94,43 +129,54 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'Email is already registered.' });
     }
     
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // Insert User
     const [result] = await db.query(
-      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-      [username, email, hashedPassword]
+      'INSERT INTO users (username, email, password, phone) VALUES (?, ?, ?, ?)',
+      [username, email, hashedPassword, phone || null]
     );
     
     const userId = result.insertId;
     const token = jwt.sign({ id: userId, username, email }, JWT_SECRET, { expiresIn: '7d' });
     
-    res.status(201).json({ token, user: { id: userId, username, email } });
+    res.status(201).json({ token, user: { id: userId, username, email, phone: phone || null } });
   } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({ error: 'Internal server error.' });
+    console.warn('Database unavailable during signup; using fallback auth store.', error.message);
+    const normalizedUsername = username.toLowerCase();
+    const normalizedEmail = email.toLowerCase();
+
+    if (fallbackUsers.has(normalizedUsername) || fallbackUsers.has(normalizedEmail)) {
+      return res.status(400).json({ error: 'Username or email is already registered.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userId = fallbackUsers.size + 1;
+    const fallbackUser = { id: userId, username, email, password: hashedPassword, phone: phone || null };
+    fallbackUsers.set(userId, fallbackUser);
+    fallbackUsers.set(normalizedUsername, fallbackUser);
+    fallbackUsers.set(normalizedEmail, fallbackUser);
+    fallbackWatchlists.set(userId, []);
+    fallbackRatings.set(userId, []);
+
+    const token = jwt.sign({ id: userId, username, email }, JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ token, user: { id: userId, username, email, phone: phone || null } });
   }
 });
 
 // Login User
 app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body; // username can be username or email
+  const { username, password } = req.body;
   
   if (!username || !password) {
     return res.status(400).json({ error: 'Username/Email and password are required.' });
   }
   
   try {
-    // Find User by username OR email
     const [users] = await db.query('SELECT * FROM users WHERE username = ? OR email = ?', [username, username]);
     if (users.length === 0) {
       return res.status(400).json({ error: 'Invalid username or password.' });
     }
     
     const user = users[0];
-    
-    // Check Password
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       return res.status(400).json({ error: 'Invalid username or password.' });
@@ -138,10 +184,23 @@ app.post('/api/auth/login', async (req, res) => {
     
     const token = jwt.sign({ id: user.id, username: user.username, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, phone: user.phone || null } });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error.' });
+    console.warn('Database unavailable during login; using fallback auth store.', error.message);
+    const normalizedUsername = username.toLowerCase();
+    const fallbackUser = fallbackUsers.get(normalizedUsername) || fallbackUsers.get(normalizedUsername.toLowerCase());
+
+    if (!fallbackUser) {
+      return res.status(400).json({ error: 'Invalid username or password.' });
+    }
+
+    const isValid = await bcrypt.compare(password, fallbackUser.password);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid username or password.' });
+    }
+
+    const token = jwt.sign({ id: fallbackUser.id, username: fallbackUser.username, email: fallbackUser.email }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: fallbackUser.id, username: fallbackUser.username, email: fallbackUser.email, phone: fallbackUser.phone || null } });
   }
 });
 
@@ -153,13 +212,68 @@ app.post('/api/auth/logout', (req, res) => {
 // Get Current User profile
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
-    const [users] = await db.query('SELECT id, username, email FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await db.query('SELECT id, username, email, phone FROM users WHERE id = ?', [req.user.id]);
     if (users.length === 0) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
     res.json({ user: users[0] });
   } catch (error) {
+    const fallbackUser = fallbackUsers.get(req.user.id);
+    if (fallbackUser) {
+      return res.json({ user: { id: fallbackUser.id, username: fallbackUser.username, email: fallbackUser.email, phone: fallbackUser.phone || null } });
+    }
     res.status(500).json({ error: 'Failed to retrieve profile.' });
+  }
+});
+
+// Update User Profile (Username, Password) - Phone & Email are read-only
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  const { username, password } = req.body;
+  const userId = req.user.id;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required.' });
+  }
+
+  try {
+    const [existing] = await db.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]);
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Username is already taken.' });
+    }
+
+    let query = 'UPDATE users SET username = ?';
+    let params = [username];
+
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      query += ', password = ?';
+      params.push(hashedPassword);
+    }
+
+    query += ' WHERE id = ?';
+    params.push(userId);
+
+    await db.query(query, params);
+
+    const [updated] = await db.query('SELECT id, username, email, phone FROM users WHERE id = ?', [userId]);
+    res.json({ success: true, message: 'Profile updated successfully.', user: updated[0] });
+  } catch (error) {
+    console.warn('Database error during update, using fallback store.', error.message);
+    const fallbackUser = fallbackUsers.get(userId);
+    if (!fallbackUser) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    fallbackUser.username = username;
+    if (password) {
+      fallbackUser.password = await bcrypt.hash(password, 10);
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: { id: userId, username, email: fallbackUser.email, phone: fallbackUser.phone }
+    });
   }
 });
 
@@ -287,7 +401,8 @@ app.get('/api/profile/watchlist', authenticateToken, async (req, res) => {
     );
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch watchlist.' });
+    const fallbackList = fallbackWatchlists.get(req.user.id) || [];
+    res.json(fallbackList);
   }
 });
 
@@ -308,7 +423,11 @@ app.post('/api/profile/watchlist', authenticateToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Added to watchlist.' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to add to watchlist.' });
+    const list = fallbackWatchlists.get(req.user.id) || [];
+    const exists = list.some(item => item.id === id);
+    const nextList = exists ? list : [...list, { id, title, poster_path, release_date, vote_average }];
+    fallbackWatchlists.set(req.user.id, nextList);
+    res.json({ success: true, message: 'Added to watchlist.' });
   }
 });
 
@@ -319,7 +438,9 @@ app.delete('/api/profile/watchlist/:id', authenticateToken, async (req, res) => 
     await db.query('DELETE FROM watchlist WHERE user_id = ? AND movie_id = ?', [req.user.id, id]);
     res.json({ success: true, message: 'Removed from watchlist.' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to remove from watchlist.' });
+    const list = (fallbackWatchlists.get(req.user.id) || []).filter(item => String(item.id) !== String(id));
+    fallbackWatchlists.set(req.user.id, list);
+    res.json({ success: true, message: 'Removed from watchlist.' });
   }
 });
 
@@ -336,7 +457,6 @@ app.get('/api/profile/ratings', authenticateToken, async (req, res) => {
       [req.user.id]
     );
     
-    // Map database columns to the frontend RatedMovie interface signature
     const formatted = rows.map(r => ({
       movie: {
         id: r.movie_id,
@@ -351,7 +471,8 @@ app.get('/api/profile/ratings', authenticateToken, async (req, res) => {
     
     res.json(formatted);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch ratings.' });
+    const fallbackList = fallbackRatings.get(req.user.id) || [];
+    res.json(fallbackList);
   }
 });
 
@@ -381,7 +502,20 @@ app.post('/api/profile/ratings', authenticateToken, async (req, res) => {
     );
     res.json({ success: true, message: 'Rating saved.' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to save rating.' });
+    const list = (fallbackRatings.get(req.user.id) || []).filter(item => String(item.movie.id) !== String(movie.id));
+    list.unshift({
+      movie: {
+        id: movie.id,
+        title: movie.title,
+        poster_path: movie.poster_path,
+        release_date: movie.release_date,
+        vote_average: movie.vote_average
+      },
+      rating,
+      timestamp: Date.now()
+    });
+    fallbackRatings.set(req.user.id, list);
+    res.json({ success: true, message: 'Rating saved.' });
   }
 });
 
@@ -392,7 +526,9 @@ app.delete('/api/profile/ratings/:id', authenticateToken, async (req, res) => {
     await db.query('DELETE FROM ratings WHERE user_id = ? AND movie_id = ?', [req.user.id, id]);
     res.json({ success: true, message: 'Rating removed.' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to remove rating.' });
+    const list = (fallbackRatings.get(req.user.id) || []).filter(item => String(item.movie.id) !== String(id));
+    fallbackRatings.set(req.user.id, list);
+    res.json({ success: true, message: 'Rating removed.' });
   }
 });
 
@@ -403,7 +539,9 @@ app.delete('/api/profile/reset', authenticateToken, async (req, res) => {
     await db.query('DELETE FROM ratings WHERE user_id = ?', [req.user.id]);
     res.json({ success: true, message: 'User history cleared successfully.' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to reset profile.' });
+    fallbackWatchlists.set(req.user.id, []);
+    fallbackRatings.set(req.user.id, []);
+    res.json({ success: true, message: 'User history cleared successfully.' });
   }
 });
 

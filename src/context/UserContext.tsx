@@ -12,6 +12,7 @@ import {
   apiSaveRating,
   apiDeleteRating,
   apiResetProfile,
+  apiUpdateProfile,
   setAuthToken,
   removeAuthToken,
   isLoggedIn
@@ -25,17 +26,24 @@ interface RatedMovie {
   timestamp: number;
 }
 
+export interface User {
+  id: number;
+  username: string;
+  email?: string;
+  phone?: string;
+}
+
 interface UserContextType {
-  user: { id: number; username: string; email?: string } | null;
+  user: User | null;
   watchlist: Movie[];
   ratings: Record<number, RatedMovie>;
   loading: boolean;
-  // Added properties to solve compile issues in Recommendations and Settings components
   geminiKey: string;
   updateGeminiKey: (key: string) => void;
   clearGeminiKey: () => void;
   loginUser: (username: string, password: string) => Promise<void>;
-  signupUser: (username: string, email: string, password: string) => Promise<void>;
+  signupUser: (username: string, email: string, password: string, phone?: string) => Promise<void>;
+  updateProfile: (data: { username: string; phone?: string; password?: string }) => Promise<void>;
   logoutUser: () => Promise<void>;
   toggleWatchlist: (movie: Movie) => Promise<void>;
   isInWatchlist: (movieId: number) => boolean;
@@ -70,21 +78,27 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const syncCollections = useCallback(async () => {
     try {
       const [watchlistData, ratingsData] = await Promise.all([
-        apiGetWatchlist(),
-        apiGetRatings()
+        apiGetWatchlist().catch(() => []),
+        apiGetRatings().catch(() => [])
       ]);
-      setWatchlist(watchlistData);
+
+      const safeWatchlist = Array.isArray(watchlistData) ? watchlistData : [];
+      const safeRatings = Array.isArray(ratingsData) ? ratingsData : [];
+
+      setWatchlist(safeWatchlist);
 
       const ratingsMap: Record<number, RatedMovie> = {};
-      ratingsData.forEach((item: any) => {
-        ratingsMap[item.movie.id] = item;
+      safeRatings.forEach((item: any) => {
+        if (item && item.movie && item.movie.id) {
+          ratingsMap[item.movie.id] = item;
+        }
       });
       setRatings(ratingsMap);
 
-      localStorage.setItem('movie_app_watchlist_backup', JSON.stringify(watchlistData));
+      localStorage.setItem('movie_app_watchlist_backup', JSON.stringify(safeWatchlist));
       localStorage.setItem('movie_app_ratings_backup', JSON.stringify(ratingsMap));
     } catch (error) {
-      console.warn('Backend server offline. Relying strictly on local browser storage storage.');
+      console.warn('Backend server offline. Relying strictly on local browser storage.');
     }
   }, []);
 
@@ -95,8 +109,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isLoggedIn()) {
         try {
           const profile = await apiGetMe();
-          setUser(profile.user);
-          await syncCollections();
+          if (profile && profile.user) {
+            setUser(profile.user);
+            await syncCollections();
+          } else {
+            removeAuthToken();
+            setUser(null);
+          }
         } catch (e) {
           console.warn('Session restore failed.');
           removeAuthToken();
@@ -123,21 +142,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const data = await apiLogin(username, password);
+      if (!data || !data.token || !data.user) {
+        throw new Error(data?.error || 'Invalid login response from server.');
+      }
       setAuthToken(data.token);
       setUser(data.user);
 
-      const watchlistData = await apiGetWatchlist();
-      const ratingsData = await apiGetRatings();
-
-      setWatchlist(watchlistData);
-      const ratingsMap: Record<number, RatedMovie> = {};
-      ratingsData.forEach((item: any) => {
-        ratingsMap[item.movie.id] = item;
-      });
-      setRatings(ratingsMap);
-
-      localStorage.setItem('movie_app_watchlist_backup', JSON.stringify(watchlistData));
-      localStorage.setItem('movie_app_ratings_backup', JSON.stringify(ratingsMap));
+      try {
+        await syncCollections();
+      } catch (syncErr) {
+        console.warn('Sync collections failed after login, preserving user session.', syncErr);
+      }
     } catch (error) {
       removeAuthToken();
       setUser(null);
@@ -147,20 +162,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signupUser = async (username: string, email: string, password: string) => {
+  const signupUser = async (username: string, email: string, password: string, phone?: string) => {
     setLoading(true);
     try {
-      const data = await apiSignup(username, email, password);
-      setAuthToken(data.token);
-      setUser(data.user);
-      setWatchlist([]);
-      setRatings({});
-      localStorage.removeItem('movie_app_watchlist_backup');
-      localStorage.removeItem('movie_app_ratings_backup');
-    } catch (error) {
-      removeAuthToken();
-      setUser(null);
-      throw error;
+      await apiSignup(username, email, password, phone);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async (data: { username: string; phone?: string; password?: string }) => {
+    setLoading(true);
+    try {
+      const res = await apiUpdateProfile(data);
+      if (res.user) {
+        setUser(res.user);
+      }
     } finally {
       setLoading(false);
     }
@@ -278,6 +295,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearGeminiKey,
         loginUser,
         signupUser,
+        updateProfile,
         logoutUser,
         toggleWatchlist,
         isInWatchlist,

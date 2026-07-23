@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { Home, Search, Sparkles, Bookmark, Settings, Menu, X, Film, LogOut } from 'lucide-react';
+import { Home, Search, Sparkles, Bookmark, Settings, Menu, X, Film, LogOut, User as UserIcon } from 'lucide-react';
 import { useMovies } from '../context/MovieContext';
 import { useUser } from '../context/UserContext';
 
@@ -9,12 +9,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const { demoMode } = useMovies();
   const { user, logoutUser } = useUser();
 
+  const isAdmin = user && (
+    user.username.toLowerCase() === 'kolluru nithiin' ||
+    user.email?.toLowerCase() === 'nithinnani324@gmail.com' ||
+    user.username.toLowerCase() === 'admin'
+  );
+
   const navItems = [
     { to: '/', label: 'Home', icon: Home },
     { to: '/search', label: 'Search', icon: Search },
     { to: '/recommendations', label: 'AI Recommend', icon: Sparkles },
     { to: '/watchlist', label: 'Watchlist', icon: Bookmark },
-    { to: '/settings', label: 'Settings', icon: Settings },
+    { to: '/dashboard', label: 'Dashboard', icon: UserIcon },
+    ...(isAdmin ? [{ to: '/settings', label: 'Admin Settings', icon: Settings }] : []),
   ];
 
   if (!user) {

@@ -7,8 +7,12 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(100) NOT NULL UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
+  phone VARCHAR(20) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Ensure phone column exists for existing databases
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20) NULL;
 
 -- Watchlist Table
 CREATE TABLE IF NOT EXISTS watchlist (
@@ -40,5 +44,5 @@ CREATE TABLE IF NOT EXISTS ratings (
 
 -- Seed guest account for testing
 INSERT INTO users (username, email, password) VALUES 
-('guest', 'guest@cinematch.com', '$2a$10$T8VqUoE1o72tM0q48T6LkeC65dC65hE.6k9v26K4G6.m96e166T8u') -- Password is 'password123'
+('guest', 'guest@cinematch.com', '$2a$10$L.NnP213J6jlRNBjkWAkg.vOFeq4.zrEmqLIXSGd16qK.tRnS1LGS') -- Password is 'password123'
 ON DUPLICATE KEY UPDATE username=username;
