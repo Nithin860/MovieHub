@@ -3,13 +3,16 @@ import type { Movie, Recommendation } from '../types';
 const getApiBase = (): string => {
   const configuredUrl = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
 
-  if (configuredUrl) {
-    return configuredUrl.endsWith('/api') ? configuredUrl : `${configuredUrl.replace(/\/$/, '')}/api`;
+  // If on Vercel live link, connect directly to local MySQL via active Ngrok tunnel
+  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    if (configuredUrl && configuredUrl.includes('ngrok')) {
+      return configuredUrl.endsWith('/api') ? configuredUrl : `${configuredUrl.replace(/\/$/, '')}/api`;
+    }
+    return 'https://harpist-chant-class.ngrok-free.dev/api';
   }
 
-  // Automatic ngrok tunnel resolution for Vercel live app to connect directly to local MySQL
-  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-    return 'https://harpist-chant-class.ngrok-free.dev/api';
+  if (configuredUrl) {
+    return configuredUrl.endsWith('/api') ? configuredUrl : `${configuredUrl.replace(/\/$/, '')}/api`;
   }
 
   return '/api';
