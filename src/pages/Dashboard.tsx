@@ -156,22 +156,20 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Phone Number */}
+        {/* Phone Number (ReadOnly) */}
         <div>
           <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Phone Number
+            Phone Number (Non-changeable)
           </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+          <div className="relative opacity-75">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
               <Phone className="w-5 h-5" />
             </span>
             <input
               type="tel"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="Enter 10-digit phone number"
-              disabled={loading}
-              className="w-full pl-11 pr-4 py-3 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all text-sm"
+              value={user?.phone || 'Not provided'}
+              disabled
+              className="w-full pl-11 pr-4 py-3 bg-black/60 border border-white/5 rounded-2xl text-gray-400 cursor-not-allowed text-sm"
             />
           </div>
         </div>

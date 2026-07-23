@@ -214,9 +214,9 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
-// Update User Profile (Username, Phone, Password)
+// Update User Profile (Username, Password) - Phone & Email are read-only
 app.put('/api/auth/profile', authenticateToken, async (req, res) => {
-  const { username, phone, password } = req.body;
+  const { username, password } = req.body;
   const userId = req.user.id;
 
   if (!username) {
@@ -229,8 +229,8 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Username is already taken.' });
     }
 
-    let query = 'UPDATE users SET username = ?, phone = ?';
-    let params = [username, phone || null];
+    let query = 'UPDATE users SET username = ?';
+    let params = [username];
 
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -253,7 +253,6 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     }
 
     fallbackUser.username = username;
-    fallbackUser.phone = phone || null;
     if (password) {
       fallbackUser.password = await bcrypt.hash(password, 10);
     }
