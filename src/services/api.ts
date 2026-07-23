@@ -18,8 +18,6 @@ const getApiBase = (): string => {
   return '/api';
 };
 
-const API_BASE = getApiBase();
-
 const getAuthToken = (): string => {
   return localStorage.getItem('movie_app_auth_token') || '';
 };
@@ -37,6 +35,7 @@ export const isLoggedIn = (): boolean => {
 };
 
 const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+  const base = getApiBase();
   const token = getAuthToken();
   const headers = {
     'Content-Type': 'application/json',
@@ -48,7 +47,7 @@ const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetch(`${base}${endpoint}`, {
     ...options,
     headers
   });
